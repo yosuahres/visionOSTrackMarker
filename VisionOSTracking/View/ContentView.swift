@@ -19,7 +19,7 @@ struct ContentView: View {
 
     var body: some View {
         VStack {
-            Model3D(named: "Resources/blue-1")
+            Model3D(named: "blue-1")
                 .padding(.bottom, 50)
 
             Text("Image Tracking Sample")
