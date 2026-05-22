@@ -12,8 +12,8 @@ import RealityKit
 struct ImageTrackingView: View {
     var appState: AppState
 
-    @State private var imageTrackingProvider: ImageTrackingProvider?
-    @State private var contentEntity: Entity?
+    @State private var imageTrackingProvider: ImageTrackingProvider? = nil
+    @State private var contentEntity: Entity? = nil
     @State private var isPositionLocked = false
     private let session = ARKitSession()
 
