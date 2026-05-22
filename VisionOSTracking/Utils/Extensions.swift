@@ -53,6 +53,77 @@ extension Entity {
     }
 }
 
+extension Entity {
+    @MainActor
+    static func buildFragmentOverlay(model: Entity, fragmentGroup: FragmentGroup) -> Entity {
+        let container = Entity()
+
+        model.components.set(OpacityComponent(opacity: 0.7))
+        container.addChild(model)
+
+        let bounds = container.visualBounds(relativeTo: container)
+
+        let fragmentColors: [SimpleMaterial.Color] = [
+            SimpleMaterial.Color(red: 1.0, green: 0.5, blue: 0.0, alpha: 1.0),
+            SimpleMaterial.Color(red: 1.0, green: 0.4, blue: 0.1, alpha: 1.0),
+            SimpleMaterial.Color(red: 1.0, green: 0.6, blue: 0.2, alpha: 1.0),
+            SimpleMaterial.Color(red: 0.9, green: 0.3, blue: 0.0, alpha: 1.0),
+            SimpleMaterial.Color(red: 1.0, green: 0.7, blue: 0.3, alpha: 1.0),
+            SimpleMaterial.Color(red: 0.8, green: 0.4, blue: 0.0, alpha: 1.0)
+        ]
+
+        let xAxisLeftMostPoint = bounds.center - SIMD3<Float>(bounds.extents.x / 2, 0, 0)
+        let yAxisLeftMostPoint = bounds.center - SIMD3<Float>(0, bounds.extents.y / 2, 0)
+        let zAxisLeftMostPoint = bounds.center - SIMD3<Float>(0, 0, bounds.extents.z / 2)
+
+        for (index, fragment) in fragmentGroup.fragments.enumerated() {
+            let color = fragmentColors[index % fragmentColors.count]
+
+            for slice in [fragment.startSlice, fragment.endSlice] {
+                let (width, height, depth): (Float, Float, Float) = {
+                    switch fragmentGroup.orientation {
+                    case "x": return (0.035, 0.035, 0.0005)
+                    case "y": return (0.035, 0.0005, 0.035)
+                    case "z": return (0.0005, 0.035, 0.035)
+                    default:
+                        print("⚠️ Invalid orientation, defaulting to thin X")
+                        return (0.035, 0.035, 0.0005)
+                    }
+                }()
+
+                let mesh = MeshResource.generateBox(width: width, height: height, depth: depth)
+                let material = SimpleMaterial(color: color, roughness: 0.5, isMetallic: false)
+                let sliceModel = ModelEntity(mesh: mesh, materials: [material])
+
+                let sliceEntity = Entity()
+                sliceEntity.addChild(sliceModel)
+
+                let (leftMostPoint, direction): (SIMD3<Float>, SIMD3<Float>) = {
+                    switch fragmentGroup.orientation {
+                    case "x": return (xAxisLeftMostPoint, SIMD3<Float>(1, 0, 0))
+                    case "y": return (yAxisLeftMostPoint, SIMD3<Float>(0, 1, 0))
+                    case "z": return (zAxisLeftMostPoint, SIMD3<Float>(0, 0, 1))
+                    default:
+                        print("⚠️ Invalid orientation, defaulting to X-axis")
+                        return (xAxisLeftMostPoint, SIMD3<Float>(1, 0, 0))
+                    }
+                }()
+
+                sliceEntity.position = leftMostPoint + direction * slice.distanceFromLeftAnchor
+                sliceEntity.orientation = quaternionFromEuler(
+                    xDeg: slice.xRotationDegrees,
+                    yDeg: slice.yRotationDegrees,
+                    zDeg: slice.zRotationDegrees
+                )
+
+                container.addChild(sliceEntity)
+            }
+        }
+
+        return container
+    }
+}
+
 extension Float {
     var degreesToRadians: Float { self * .pi / 180 }
 }

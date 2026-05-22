@@ -6,9 +6,6 @@
 //
 
 import Foundation
-import simd
-import ARKit
-import RealityKit
 
 struct FragmentSlice: Identifiable {
     let id = UUID()
@@ -32,11 +29,4 @@ struct FragmentGroup: Identifiable {
     var usdzModelName: String
     var orientation: String
     var fragments: [Fragment]
-}
-
-struct LoadedFragmentGroup: Identifiable {
-    let id = UUID()
-    let group: FragmentGroup
-    let referenceObject: ReferenceObject
-    let usdzEntity: Entity?
 }

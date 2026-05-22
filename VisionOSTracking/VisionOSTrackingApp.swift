@@ -9,13 +9,15 @@ import SwiftUI
 
 @main
 struct VisionOSImageTrackingSampleApp: App {
+    @State private var appState = AppState()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            HomeView(appState: appState, immersiveSpaceIdentifier: "ImmersiveSpace")
         }
 
         ImmersiveSpace(id: "ImmersiveSpace") {
-            ImageTrackingView()
+            ImageTrackingView(appState: appState)
         }
     }
 }
