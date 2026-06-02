@@ -16,6 +16,7 @@ class ImageAnchorVisualization: ObservableObject {
     @Published var isGizmoVisible: Bool = false
 
     private var lockedTransform: Transform?
+    
     let entity: Entity
 
     private(set) var gizmoEntity: Entity = Entity()
@@ -121,21 +122,23 @@ class ImageAnchorVisualization: ObservableObject {
         entity.position += nudge
         lockedTransform = entity.transform
     }
-
+    
     func update(with anchor: ImageAnchor) {
-        guard anchor.isTracked else {
-            entity.isEnabled = false
-            return
-        }
-        entity.isEnabled = true
-
+        // When locked, keep the entity visible and frozen — ignore anchor state entirely
         if isPositionLocked, let locked = lockedTransform {
+            entity.isEnabled = true
             entity.transform = locked
             return
         }
 
-        let transform = Transform(matrix: anchor.originFromAnchorTransform)
-        entity.transform.translation = transform.translation
-        entity.transform.rotation = transform.rotation
+        // Not locked — follow the anchor normally
+        if anchor.isTracked {
+            entity.isEnabled = true
+            let transform = Transform(matrix: anchor.originFromAnchorTransform)
+            entity.transform.translation = transform.translation
+            entity.transform.rotation = transform.rotation
+        } else {
+            entity.isEnabled = false
+        }
     }
 }

@@ -13,31 +13,74 @@ struct ImageTrackingView: View {
     var appState: AppState
 
     @State private var imageTrackingProvider: ImageTrackingProvider? = nil
-    @State private var contentEntity: Entity? = nil
-    @State private var isPositionLocked = false
+    @State private var visualization: ImageAnchorVisualization? = nil
+    @State private var gizmoDragStart: SIMD3<Float>? = nil
+
     private let session = ARKitSession()
+
+    private func axis(forHandle entity: Entity) -> SIMD3<Float>? {
+        guard let vis = visualization else { return nil }
+        if entity === vis.gizmoAxisX { return [1, 0, 0] }
+        if entity === vis.gizmoAxisY { return [0, 1, 0] }
+        if entity === vis.gizmoAxisZ { return [0, 0, 1] }
+        return nil
+    }
+
+    private var gizmoGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .targetedToAnyEntity()
+            .onChanged { value in
+                guard let axis = axis(forHandle: value.entity) else { return }
+                let worldDelta = value.convert(
+                    value.translation3D, from: .local, to: .scene)
+                let delta = SIMD3<Float>(
+                    Float(worldDelta.x),
+                    Float(worldDelta.y),
+                    Float(worldDelta.z))
+                let projected = simd_dot(delta, normalize(axis))
+                let start = gizmoDragStart ?? SIMD3<Float>.zero
+                if gizmoDragStart == nil { gizmoDragStart = delta }
+                let frameDelta = projected - simd_dot(start, normalize(axis))
+                visualization?.translateAlongAxis(axis, delta: frameDelta)
+                gizmoDragStart = delta
+            }
+            .onEnded { _ in
+                gizmoDragStart = nil
+            }
+    }
 
     var body: some View {
         RealityView { content, attachments in
             let fragmentGroup = appState.selectedFragmentGroup ?? sampleFragmentGroup
-            let model = try! await Entity(named: "Resources/\(fragmentGroup.usdzModelName)")
+            let model = try! await Entity(named: "\(fragmentGroup.usdzModelName)")
             let overlay = Entity.buildFragmentOverlay(model: model, fragmentGroup: fragmentGroup)
             overlay.isEnabled = false
-            contentEntity = overlay
+
+            let vis = await MainActor.run {
+                ImageAnchorVisualization(overlayEntity: overlay)
+            }
+            visualization = vis
             content.add(overlay)
 
             if let controlAttachment = attachments.entity(for: "LockControl") {
                 let bounds = overlay.visualBounds(relativeTo: overlay)
-                controlAttachment.position = [0, bounds.center.y + bounds.extents.y * 0.5 + 0.1, 0]
+                controlAttachment.position = [
+                    0,
+                    bounds.center.y + bounds.extents.y * 0.5 + 0.1,
+                    0
+                ]
                 controlAttachment.components.set(BillboardComponent())
                 controlAttachment.scale = [0.5, 0.5, 0.5]
                 overlay.addChild(controlAttachment)
             }
         } attachments: {
             Attachment(id: "LockControl") {
-                LockControlView(isLocked: isPositionLocked, onToggle: togglePositionLock)
+                if let vis = visualization {
+                    LockControlView(visualization: vis)
+                }
             }
         }
+        .gesture(gizmoGesture)
         .task {
             await loadImage()
             await runSession()
@@ -51,14 +94,15 @@ struct ImageTrackingView: View {
             appState.didLeaveImmersiveSpace()
         }
     }
-
+    
     func loadImage() async {
         let uiImage = UIImage(named: "marker_set")
         let cgImage = uiImage?.cgImage
-        let referenceImage = ReferenceImage(cgimage: cgImage!, physicalSize: CGSize(width: 1920, height: 1005))
+        let referenceImage = ReferenceImage(
+            cgimage: cgImage!,
+            physicalSize: CGSize(width: 0.07, height: 0.07))
         imageTrackingProvider = ImageTrackingProvider(
-            referenceImages: [referenceImage]
-        )
+            referenceImages: [referenceImage])
     }
 
     func runSession() async {
@@ -76,62 +120,58 @@ struct ImageTrackingView: View {
 
     func processImageTrackingUpdates() async {
         for await update in imageTrackingProvider!.anchorUpdates {
-            updateImage(update.anchor)
-        }
-    }
-
-    private func togglePositionLock() {
-        if isPositionLocked {
-            isPositionLocked = false
-        } else if let contentEntity, contentEntity.isEnabled {
-            isPositionLocked = true
-        }
-    }
-
-    private func updateImage(_ anchor: ImageAnchor) {
-        guard let contentEntity else { return }
-        if isPositionLocked {
-            contentEntity.isEnabled = true
-            return
-        }
-        if anchor.isTracked {
-            contentEntity.isEnabled = true
-            let transform = Transform(matrix: anchor.originFromAnchorTransform)
-            contentEntity.transform.translation = transform.translation
-            contentEntity.transform.rotation = transform.rotation
-        } else {
-            contentEntity.isEnabled = false
+            await MainActor.run {
+                visualization?.update(with: update.anchor)
+            }
         }
     }
 }
 
 struct LockControlView: View {
-    let isLocked: Bool
-    let onToggle: () -> Void
+    @ObservedObject var visualization: ImageAnchorVisualization
 
     var body: some View {
         VStack(spacing: 12) {
             HStack {
-                Image(systemName: isLocked ? "lock.fill" : "lock.open")
-                    .foregroundColor(isLocked ? .green : .blue)
+                Image(systemName: visualization.isPositionLocked ? "lock.fill" : "lock.open")
+                    .foregroundColor(visualization.isPositionLocked ? .green : .blue)
                     .font(.title2)
 
-                Text(isLocked ? "Locked" : "Tracking")
+                Text(visualization.isPositionLocked ? "Locked" : "Tracking")
                     .font(.headline)
-                    .foregroundColor(isLocked ? .green : .blue)
+                    .foregroundColor(visualization.isPositionLocked ? .green : .blue)
             }
 
-            Button(action: onToggle) {
-                Text(isLocked ? "Unlock Position" : "Lock Position")
+            Button(action: { visualization.togglePositionLock() }) {
+                Text(visualization.isPositionLocked ? "Unlock Position" : "Lock Position")
                     .font(.headline)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 20)
-                            .fill(isLocked ? Color.green : Color.blue)
+                            .fill(visualization.isPositionLocked ? Color.green : Color.blue)
                             .opacity(0.8)
                     )
                     .foregroundColor(.white)
+            }
+
+            if visualization.isPositionLocked {
+                Button(action: { visualization.toggleGizmo() }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "move.3d")
+                            .symbolVariant(visualization.isGizmoVisible ? .fill : .none)
+                        Text(visualization.isGizmoVisible ? "Hide Gizmo" : "Show Gizmo")
+                    }
+                    .font(.headline)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(visualization.isGizmoVisible ? Color.orange : Color.gray)
+                            .opacity(0.8)
+                    )
+                    .foregroundColor(.white)
+                }
             }
         }
         .padding()
