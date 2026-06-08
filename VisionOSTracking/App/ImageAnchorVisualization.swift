@@ -23,8 +23,9 @@ class ImageAnchorVisualization: ObservableObject {
     private(set) var gizmoAxisX: Entity = Entity()
     private(set) var gizmoAxisY: Entity = Entity()
     private(set) var gizmoAxisZ: Entity = Entity()
+    private(set) var rotationGizmoEntity: Entity? = nil
 
-    init(overlayEntity: Entity) {
+    init(overlayEntity: Entity, gizmoModel: Entity? = nil) {
         self.entity = overlayEntity
         let bounds = overlayEntity.visualBounds(relativeTo: overlayEntity)
         let center = bounds.center
@@ -40,12 +41,23 @@ class ImageAnchorVisualization: ObservableObject {
         gizmo.addChild(hX)
         gizmo.addChild(hY)
         gizmo.addChild(hZ)
+
+        if let rotGizmo = gizmoModel {
+            rotGizmo.position = .zero
+            rotGizmo.components.set(CollisionComponent(shapes: [
+                .generateSphere(radius: 0.05)
+            ]))
+            rotGizmo.components.set(InputTargetComponent(allowedInputTypes: .all))
+            gizmo.addChild(rotGizmo)
+        }
+
         overlayEntity.addChild(gizmo)
 
         self.gizmoEntity = gizmo
         self.gizmoAxisX = hX
         self.gizmoAxisY = hY
         self.gizmoAxisZ = hZ
+        self.rotationGizmoEntity = gizmoModel
     }
 
     private static func makeHandle(color: UIColor, axis: SIMD3<Float>) -> Entity {
@@ -115,6 +127,15 @@ class ImageAnchorVisualization: ObservableObject {
         gizmoEntity.isEnabled = isGizmoVisible
     }
 
+    // Rotates around the viewer-facing axis (+Z in RealityKit world space)
+    func rotateAroundZ(delta: Float) {
+        guard isPositionLocked else { return }
+        let sensitivity: Float = 3.0
+        let rotation = simd_quatf(angle: delta * sensitivity, axis: [0, 0, 1])
+        entity.transform.rotation = rotation * entity.transform.rotation
+        lockedTransform = entity.transform
+    }
+
     func translateAlongAxis(_ worldAxis: SIMD3<Float>, delta: Float) {
         guard isPositionLocked else { return }
         let sensitivity: Float = 0.04
@@ -124,14 +145,14 @@ class ImageAnchorVisualization: ObservableObject {
     }
     
     func update(with anchor: ImageAnchor) {
-        // When locked, keep the entity visible and frozen — ignore anchor state entirely
+        // When locked
         if isPositionLocked, let locked = lockedTransform {
             entity.isEnabled = true
             entity.transform = locked
             return
         }
 
-        // Not locked — follow the anchor normally
+        // Not locked
         if anchor.isTracked {
             entity.isEnabled = true
             let transform = Transform(matrix: anchor.originFromAnchorTransform)

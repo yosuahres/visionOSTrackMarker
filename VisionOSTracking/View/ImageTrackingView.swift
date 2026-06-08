@@ -26,23 +26,42 @@ struct ImageTrackingView: View {
         return nil
     }
 
+    private func isRotationGizmo(_ entity: Entity) -> Bool {
+        guard let vis = visualization, let rotGizmo = vis.rotationGizmoEntity else { return false }
+        var current: Entity? = entity
+        while let e = current {
+            if e === rotGizmo { return true }
+            current = e.parent
+        }
+        return false
+    }
+
     private var gizmoGesture: some Gesture {
         DragGesture(minimumDistance: 0)
             .targetedToAnyEntity()
             .onChanged { value in
-                guard let axis = axis(forHandle: value.entity) else { return }
-                let worldDelta = value.convert(
-                    value.translation3D, from: .local, to: .scene)
-                let delta = SIMD3<Float>(
-                    Float(worldDelta.x),
-                    Float(worldDelta.y),
-                    Float(worldDelta.z))
-                let projected = simd_dot(delta, normalize(axis))
-                let start = gizmoDragStart ?? SIMD3<Float>.zero
-                if gizmoDragStart == nil { gizmoDragStart = delta }
-                let frameDelta = projected - simd_dot(start, normalize(axis))
-                visualization?.translateAlongAxis(axis, delta: frameDelta)
-                gizmoDragStart = delta
+                if let axis = axis(forHandle: value.entity) {
+                    let worldDelta = value.convert(
+                        value.translation3D, from: .local, to: .scene)
+                    let delta = SIMD3<Float>(
+                        Float(worldDelta.x),
+                        Float(worldDelta.y),
+                        Float(worldDelta.z))
+                    let projected = simd_dot(delta, normalize(axis))
+                    let start = gizmoDragStart ?? SIMD3<Float>.zero
+                    if gizmoDragStart == nil { gizmoDragStart = delta }
+                    let frameDelta = projected - simd_dot(start, normalize(axis))
+                    visualization?.translateAlongAxis(axis, delta: frameDelta)
+                    gizmoDragStart = delta
+                } else if isRotationGizmo(value.entity) {
+                    let worldDelta = value.convert(
+                        value.translation3D, from: .local, to: .scene)
+                    let dx = Float(worldDelta.x)
+                    let prevX = gizmoDragStart?.x ?? dx
+                    if gizmoDragStart == nil { gizmoDragStart = SIMD3<Float>(dx, 0, 0) }
+                    visualization?.rotateAroundZ(delta: dx - prevX)
+                    gizmoDragStart = SIMD3<Float>(dx, 0, 0)
+                }
             }
             .onEnded { _ in
                 gizmoDragStart = nil
@@ -53,11 +72,12 @@ struct ImageTrackingView: View {
         RealityView { content, attachments in
             let fragmentGroup = appState.selectedFragmentGroup ?? sampleFragmentGroup
             let model = try! await Entity(named: "\(fragmentGroup.usdzModelName)")
+            let gizmoModel = try? await Entity(named: "rotation_gizmo")
             let overlay = Entity.buildFragmentOverlay(model: model, fragmentGroup: fragmentGroup)
             overlay.isEnabled = false
 
             let vis = await MainActor.run {
-                ImageAnchorVisualization(overlayEntity: overlay)
+                ImageAnchorVisualization(overlayEntity: overlay, gizmoModel: gizmoModel)
             }
             visualization = vis
             content.add(overlay)
