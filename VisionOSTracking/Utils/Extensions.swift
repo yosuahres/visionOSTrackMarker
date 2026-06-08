@@ -64,12 +64,12 @@ extension Entity {
         let bounds = container.visualBounds(relativeTo: container)
 
         let fragmentColors: [SimpleMaterial.Color] = [
-            SimpleMaterial.Color(red: 1.0, green: 0.5, blue: 0.0, alpha: 1.0),
-            SimpleMaterial.Color(red: 1.0, green: 0.4, blue: 0.1, alpha: 1.0),
-            SimpleMaterial.Color(red: 1.0, green: 0.6, blue: 0.2, alpha: 1.0),
-            SimpleMaterial.Color(red: 0.9, green: 0.3, blue: 0.0, alpha: 1.0),
-            SimpleMaterial.Color(red: 1.0, green: 0.7, blue: 0.3, alpha: 1.0),
-            SimpleMaterial.Color(red: 0.8, green: 0.4, blue: 0.0, alpha: 1.0)
+            SimpleMaterial.Color(red: 0.0, green: 0.8, blue: 0.0, alpha: 1.0),
+            SimpleMaterial.Color(red: 0.1, green: 0.7, blue: 0.1, alpha: 1.0),
+            SimpleMaterial.Color(red: 0.0, green: 0.9, blue: 0.2, alpha: 1.0),
+            SimpleMaterial.Color(red: 0.2, green: 0.6, blue: 0.0, alpha: 1.0),
+            SimpleMaterial.Color(red: 0.0, green: 1.0, blue: 0.3, alpha: 1.0),
+            SimpleMaterial.Color(red: 0.1, green: 0.75, blue: 0.1, alpha: 1.0)
         ]
 
         let xAxisLeftMostPoint = bounds.center - SIMD3<Float>(bounds.extents.x / 2, 0, 0)

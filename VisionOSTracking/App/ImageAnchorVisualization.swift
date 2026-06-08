@@ -135,7 +135,8 @@ class ImageAnchorVisualization: ObservableObject {
         if anchor.isTracked {
             entity.isEnabled = true
             let transform = Transform(matrix: anchor.originFromAnchorTransform)
-            entity.transform.translation = transform.translation
+            let markerOffset = SIMD3<Float>(0.01, 0.03, 0) // 1 cm X, 3 cm Y (up)
+            entity.transform.translation = transform.translation + markerOffset
             entity.transform.rotation = transform.rotation
         } else {
             entity.isEnabled = false
