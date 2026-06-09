@@ -34,6 +34,15 @@
 			);
 			target = 602D4F4A2FB5DCF9008216B8 /* VisionOSTracking */;
 		};
+		607C4EB72FD791E70086EFAD /* Exceptions for "VisionOSTracking" folder in "VisionOSTrackingTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Resources/bone-white-1.usdz",
+				Resources/fibula.referenceobject,
+				Resources/mandibula.referenceobject,
+			);
+			target = 602D4F5E2FB5DCFC008216B8 /* VisionOSTrackingTests */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -41,6 +50,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				602D4F652FB5DCFC008216B8 /* Exceptions for "VisionOSTracking" folder in "VisionOSTracking" target */,
+				607C4EB72FD791E70086EFAD /* Exceptions for "VisionOSTracking" folder in "VisionOSTrackingTests" target */,
 			);
 			path = VisionOSTracking;
 			sourceTree = "<group>";

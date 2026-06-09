@@ -127,7 +127,6 @@ class ImageAnchorVisualization: ObservableObject {
         gizmoEntity.isEnabled = isGizmoVisible
     }
 
-    // Rotates around the viewer-facing axis (+Z in RealityKit world space)
     func rotateAroundZ(delta: Float) {
         guard isPositionLocked else { return }
         let sensitivity: Float = 3.0
@@ -152,11 +151,10 @@ class ImageAnchorVisualization: ObservableObject {
             return
         }
 
-        // Not locked
-        if anchor.isTracked {
+        if anchor.isTracked {2
             entity.isEnabled = true
             let transform = Transform(matrix: anchor.originFromAnchorTransform)
-            let markerOffset = SIMD3<Float>(0.01, 0.03, 0) // 1 cm X, 3 cm Y (up)
+            let markerOffset = SIMD3<Float>(0.09, 0.06, -0.05)
             entity.transform.translation = transform.translation + markerOffset
             entity.transform.rotation = transform.rotation
         } else {
