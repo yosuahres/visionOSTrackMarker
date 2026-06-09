@@ -76,6 +76,9 @@ extension Entity {
         let yAxisLeftMostPoint = bounds.center - SIMD3<Float>(0, bounds.extents.y / 2, 0)
         let zAxisLeftMostPoint = bounds.center - SIMD3<Float>(0, 0, bounds.extents.z / 2)
 
+        // Physical bone length in metres — distanceFromLeftAnchor is in this space
+        let physicalBoneLength: Float = 0.20
+
         for (index, fragment) in fragmentGroup.fragments.enumerated() {
             let color = fragmentColors[index % fragmentColors.count]
 
@@ -98,18 +101,21 @@ extension Entity {
                 let sliceEntity = Entity()
                 sliceEntity.addChild(sliceModel)
 
-                let (leftMostPoint, direction): (SIMD3<Float>, SIMD3<Float>) = {
+                let (leftMostPoint, direction, axisExtent): (SIMD3<Float>, SIMD3<Float>, Float) = {
                     switch fragmentGroup.orientation {
-                    case "x": return (xAxisLeftMostPoint, SIMD3<Float>(1, 0, 0))
-                    case "y": return (yAxisLeftMostPoint, SIMD3<Float>(0, 1, 0))
-                    case "z": return (zAxisLeftMostPoint, SIMD3<Float>(0, 0, 1))
+                    case "x": return (xAxisLeftMostPoint, SIMD3<Float>(1, 0, 0), bounds.extents.x)
+                    case "y": return (yAxisLeftMostPoint, SIMD3<Float>(0, 1, 0), bounds.extents.y)
+                    case "z": return (zAxisLeftMostPoint, SIMD3<Float>(0, 0, 1), bounds.extents.z)
                     default:
                         print("⚠️ Invalid orientation, defaulting to X-axis")
-                        return (xAxisLeftMostPoint, SIMD3<Float>(1, 0, 0))
+                        return (xAxisLeftMostPoint, SIMD3<Float>(1, 0, 0), bounds.extents.x)
                     }
                 }()
 
-                sliceEntity.position = leftMostPoint + direction * slice.distanceFromLeftAnchor
+                // Convert physical distance → model space
+                let modelSpaceDistance = (slice.distanceFromLeftAnchor / physicalBoneLength) * axisExtent
+
+                sliceEntity.position = leftMostPoint + direction * modelSpaceDistance
                 sliceEntity.orientation = quaternionFromEuler(
                     xDeg: slice.xRotationDegrees,
                     yDeg: slice.yRotationDegrees,

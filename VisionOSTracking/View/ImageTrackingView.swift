@@ -71,7 +71,16 @@ struct ImageTrackingView: View {
     var body: some View {
         RealityView { content, attachments in
             let fragmentGroup = appState.selectedFragmentGroup ?? sampleFragmentGroup
-            let model = try! await Entity(named: "\(fragmentGroup.usdzModelName)")
+
+            // Load model from fibula.referenceobject → Resources/scan.usdz
+            let model: Entity
+            do {
+                model = try await ReferenceObjectLoader.loadEntity(fromReferenceObject: "fibula")
+            } catch {
+                print("Failed to load fibula from referenceobject: \(error.localizedDescription)")
+                return
+            }
+
             let gizmoModel = try? await Entity(named: "rotation_gizmo")
             let overlay = Entity.buildFragmentOverlay(model: model, fragmentGroup: fragmentGroup)
             overlay.isEnabled = false
@@ -114,7 +123,7 @@ struct ImageTrackingView: View {
             appState.didLeaveImmersiveSpace()
         }
     }
-    
+
     func loadImage() async {
         let uiImage = UIImage(named: "marker_set")
         let cgImage = uiImage?.cgImage
