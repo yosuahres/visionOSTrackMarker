@@ -1,47 +1,65 @@
 //
 //  Sample.swift
-//  VisionOSTracking
+//  VisionOSFibulaCuttingGuide
 //
-//  Created by HARES on 5/19/26.
+//  Created by Mohammad Zhafran Dzaky on 16/05/25.
 //
 
 import Foundation
+import simd
 
 let sampleFragmentGroup = FragmentGroup(
-    name: "Test Case B",
-    description: "Quad-point fragment setup from quaternion tracking data.",
-    usdzModelName: "bone-white-1",
+    name: "Fibula Bejo",
+    description: "Fibula Bejo Santoso Testing",
+    usdzModelName: "fibula-2",
     orientation: "x",
     fragments: [
         Fragment(
             startSlice: FragmentSlice(
-                distanceFromLeftAnchor: 0.139387, // [0] pos.x = 13.9387cm
+                distanceFromLeftAnchor: 0.05, // Added 5cm offset
                 xRotationDegrees: -160.911,
                 yRotationDegrees: -83.0456,
                 zRotationDegrees: 144.811
             ),
             endSlice: FragmentSlice(
-                distanceFromLeftAnchor: 0.087842, // [1] pos.x = 8.7842cm
+                distanceFromLeftAnchor: 0.1104728, // 0.05 + 0.0604728
                 xRotationDegrees: -1.97443,
                 yRotationDegrees: 55.9448,
                 zRotationDegrees: 1.21357
             ),
-            length: 0.051545 // 0.139387 - 0.087842
+            length: 0.0604728
         ),
         Fragment(
             startSlice: FragmentSlice(
-                distanceFromLeftAnchor: 0.086907, // [2] pos.x = 8.6907cm
+                distanceFromLeftAnchor: 0.1286343, // 0.1104728 + 0.0181615
                 xRotationDegrees: -18.093,
                 yRotationDegrees: -58.4248,
                 zRotationDegrees: 5.21148
             ),
             endSlice: FragmentSlice(
-                distanceFromLeftAnchor: 0.044515, // [3] pos.x = 4.4515cm
+                distanceFromLeftAnchor: 0.1606886, // 0.1286343 + 0.0320543
+                xRotationDegrees: -4.2324,
+                yRotationDegrees: 59.2235,
+                zRotationDegrees: 1.28983
+            ),
+            length: 0.0320543
+        ),
+        Fragment(
+            startSlice: FragmentSlice(
+                distanceFromLeftAnchor: 0.1804378, // 0.1606886 + 0.0197492
+                xRotationDegrees: -40.5112,
+                yRotationDegrees: -50.6391,
+                zRotationDegrees: 35.8737
+            ),
+            endSlice: FragmentSlice(
+                distanceFromLeftAnchor: 0.2273878, // 0.1804378 + 0.04695
                 xRotationDegrees: -27.5019,
                 yRotationDegrees: 87.2228,
                 zRotationDegrees: -24.0868
             ),
-            length: 0.042392 // 0.086907 - 0.044515
+            length: 0.04695
         )
     ]
 )
+
+let allFragmentGroups: [FragmentGroup] = [sampleFragmentGroup]

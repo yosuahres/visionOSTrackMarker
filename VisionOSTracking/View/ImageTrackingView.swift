@@ -6,6 +6,7 @@
 //
 
 import ARKit
+import Spatial
 import SwiftUI
 import RealityKit
 
@@ -14,57 +15,54 @@ struct ImageTrackingView: View {
 
     @State private var imageTrackingProvider: ImageTrackingProvider? = nil
     @State private var visualization: ImageAnchorVisualization? = nil
-    @State private var gizmoDragStart: SIMD3<Float>? = nil
+    @State private var dragStart: SIMD3<Float>? = nil
+    @State private var rotateStartAngle: Double? = nil
 
     private let session = ARKitSession()
 
-    private func axis(forHandle entity: Entity) -> SIMD3<Float>? {
-        guard let vis = visualization else { return nil }
-        if entity === vis.gizmoAxisX { return [1, 0, 0] }
-        if entity === vis.gizmoAxisY { return [0, 1, 0] }
-        if entity === vis.gizmoAxisZ { return [0, 0, 1] }
-        return nil
-    }
-
-    private func isRotationGizmo(_ entity: Entity) -> Bool {
-        guard let vis = visualization, let rotGizmo = vis.rotationGizmoEntity else { return false }
-        var current: Entity? = entity
-        while let e = current {
-            if e === rotGizmo { return true }
-            current = e.parent
+    private func isMoveHandle(_ entity: Entity) -> Bool {
+        guard let vis = visualization else { return false }
+        var e: Entity? = entity
+        while let cur = e {
+            if cur === vis.moveHandle { return true }
+            e = cur.parent
         }
         return false
     }
 
-    private var gizmoGesture: some Gesture {
+    private var freeMoveGesture: some Gesture {
         DragGesture(minimumDistance: 0)
             .targetedToAnyEntity()
             .onChanged { value in
-                if let axis = axis(forHandle: value.entity) {
-                    let worldDelta = value.convert(
-                        value.translation3D, from: .local, to: .scene)
-                    let delta = SIMD3<Float>(
-                        Float(worldDelta.x),
-                        Float(worldDelta.y),
-                        Float(worldDelta.z))
-                    let projected = simd_dot(delta, normalize(axis))
-                    let start = gizmoDragStart ?? SIMD3<Float>.zero
-                    if gizmoDragStart == nil { gizmoDragStart = delta }
-                    let frameDelta = projected - simd_dot(start, normalize(axis))
-                    visualization?.translateAlongAxis(axis, delta: frameDelta)
-                    gizmoDragStart = delta
-                } else if isRotationGizmo(value.entity) {
-                    let worldDelta = value.convert(
-                        value.translation3D, from: .local, to: .scene)
-                    let dx = Float(worldDelta.x)
-                    let prevX = gizmoDragStart?.x ?? dx
-                    if gizmoDragStart == nil { gizmoDragStart = SIMD3<Float>(dx, 0, 0) }
-                    visualization?.rotateAroundZ(delta: dx - prevX)
-                    gizmoDragStart = SIMD3<Float>(dx, 0, 0)
-                }
+                guard isMoveHandle(value.entity) else { return }
+                let worldDelta = value.convert(value.translation3D, from: .local, to: .scene)
+                let delta = SIMD3<Float>(Float(worldDelta.x), Float(worldDelta.y), Float(worldDelta.z))
+                let start = dragStart ?? .zero
+                if dragStart == nil { dragStart = delta }
+                visualization?.moveBy(worldDelta: delta - start)
+                dragStart = delta
             }
             .onEnded { _ in
-                gizmoDragStart = nil
+                dragStart = nil
+            }
+    }
+
+    private var rotateGesture: some Gesture {
+        RotateGesture3D(constrainedToAxis: .x)
+            .targetedToAnyEntity()
+            .onChanged { value in
+                guard isMoveHandle(value.entity) else { return }
+                // Extract cumulative X-axis angle from the quaternion.
+                // For X-constrained rotation q ≈ (sin(θ/2), 0, 0, cos(θ/2)) in (x,y,z,w).
+                let q = value.rotation.quaternion
+                let cumulativeAngle = 2.0 * atan2(q.vector.x, q.vector.w)
+                let prev = rotateStartAngle ?? cumulativeAngle
+                if rotateStartAngle == nil { rotateStartAngle = cumulativeAngle }
+                visualization?.rotateAroundX(delta: Float(cumulativeAngle - prev))
+                rotateStartAngle = cumulativeAngle
+            }
+            .onEnded { _ in
+                rotateStartAngle = nil
             }
     }
 
@@ -72,7 +70,6 @@ struct ImageTrackingView: View {
         RealityView { content, attachments in
             let fragmentGroup = appState.selectedFragmentGroup ?? sampleFragmentGroup
 
-            // Load model from fibula.referenceobject → Resources/scan.usdz
             let model: Entity
             do {
                 model = try await ReferenceObjectLoader.loadEntity(fromReferenceObject: "fibula")
@@ -81,12 +78,11 @@ struct ImageTrackingView: View {
                 return
             }
 
-            let gizmoModel = try? await Entity(named: "rotation_gizmo")
             let overlay = Entity.buildFragmentOverlay(model: model, fragmentGroup: fragmentGroup)
             overlay.isEnabled = false
 
             let vis = await MainActor.run {
-                ImageAnchorVisualization(overlayEntity: overlay, gizmoModel: gizmoModel)
+                ImageAnchorVisualization(overlayEntity: overlay)
             }
             visualization = vis
             content.add(overlay)
@@ -109,7 +105,7 @@ struct ImageTrackingView: View {
                 }
             }
         }
-        .gesture(gizmoGesture)
+        .gesture(freeMoveGesture.simultaneously(with: rotateGesture))
         .task {
             await loadImage()
             await runSession()
@@ -185,18 +181,17 @@ struct LockControlView: View {
             }
 
             if visualization.isPositionLocked {
-                Button(action: { visualization.toggleGizmo() }) {
+                Button(action: { visualization.toggleFreeMove() }) {
                     HStack(spacing: 6) {
-                        Image(systemName: "move.3d")
-                            .symbolVariant(visualization.isGizmoVisible ? .fill : .none)
-                        Text(visualization.isGizmoVisible ? "Hide Gizmo" : "Show Gizmo")
+                        Image(systemName: visualization.isFreeMoveEnabled ? "hand.draw.fill" : "hand.draw")
+                        Text(visualization.isFreeMoveEnabled ? "Free Move: On" : "Free Move")
                     }
                     .font(.headline)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 20)
-                            .fill(visualization.isGizmoVisible ? Color.orange : Color.gray)
+                            .fill(visualization.isFreeMoveEnabled ? Color.purple : Color.gray)
                             .opacity(0.8)
                     )
                     .foregroundColor(.white)
