@@ -85,8 +85,9 @@ class ImageAnchorVisualization: ObservableObject {
             entity.isEnabled = true
             let transform = Transform(matrix: anchor.originFromAnchorTransform)
             let markerOffset = SIMD3<Float>(0.09, 0.055, -0.032)
-            entity.transform.translation = transform.translation + markerOffset
-            entity.transform.rotation = transform.rotation
+            var target = transform
+            target.translation = transform.translation + markerOffset
+            entity.move(to: target, relativeTo: nil, duration: 0.1, timingFunction: .linear)
         } else {
             entity.isEnabled = false
         }
